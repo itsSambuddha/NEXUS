@@ -59,7 +59,7 @@ export default function Home() {
             {/* Call-to-action buttons */}
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <button
-                className="rounded-md bg-[#2e9cf0] px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#002f81] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="rounded-md bg-[#2e9cf0] px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#002f81] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                 onClick={() => {
                   // Check if user is logged in, redirect accordingly
                   if (localStorage.getItem("userInfo") != null) {
