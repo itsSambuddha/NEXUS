@@ -9,9 +9,9 @@ export default function About() {
       {/* Header with logo */}
       <header className="absolute inset-x-0 top-0 z-50">
         <nav className="flex items-center justify-between p-6 lg:px-8">
-          <div className="flex lg:flex-1">
+          {/* <div className="flex lg:flex-1">
             <Image src={Icon} height={100} width={200} alt="SEC Logo" />
-          </div>
+          </div> */}
         </nav>
       </header>
 
