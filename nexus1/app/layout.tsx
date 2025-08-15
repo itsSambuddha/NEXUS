@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Image from "next/image";
 import Link from "next/link";
-import Icon from "../public/logo/tick-checkbox-svgrepo-com.svg";
+import Icon from "../public/logo/SEC_NEXUS_logo-removebg-preview.svg";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

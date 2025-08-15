@@ -2,27 +2,40 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { 
+  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  sendPasswordResetEmail,
+  createUserWithEmailAndPassword
+} from 'firebase/auth';
 import { auth } from '../utils/firebase';
 
 export default function LoginPage() {
+  // Form state variables
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [firebaseAuth, setFirebaseAuth] = useState<any>(null);
+  const [isSignUp, setIsSignUp] = useState(false); // Toggle between login and signup modes
   const router = useRouter();
 
+  // Initialize Firebase auth on client-side mount to prevent hydration issues
   useEffect(() => {
     setMounted(true);
-    // Set auth when component mounts on client side
     if (auth) {
       setFirebaseAuth(auth);
     }
   }, []);
 
+  /**
+   * Handles email/password login
+   * Validates credentials and redirects to home on success
+   */
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firebaseAuth) {
@@ -40,6 +53,7 @@ export default function LoginPage() {
     } catch (error: any) {
       let errorMessage = 'Login failed. Please try again.';
       
+      // Map Firebase error codes to user-friendly messages
       switch (error.code) {
         case 'auth/invalid-email':
           errorMessage = 'Invalid email address.';
@@ -66,6 +80,60 @@ export default function LoginPage() {
     }
   };
 
+  /**
+   * Handles new user registration with email/password
+   * Validates password confirmation and creates new account
+   */
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firebaseAuth) {
+      setError('Authentication service not available');
+      return;
+    }
+
+    // Validate password confirmation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      router.push('/');
+    } catch (error: any) {
+      let errorMessage = 'Sign up failed. Please try again.';
+      
+      // Map Firebase signup error codes to user-friendly messages
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'This email is already registered.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'Email/password accounts are not enabled.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Password is too weak.';
+          break;
+        default:
+          errorMessage = error.message || 'Sign up failed. Please try again.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handles Google authentication (works for both login and signup)
+   * Uses Firebase's popup-based Google sign-in
+   */
   const handleGoogleLogin = async () => {
     if (!firebaseAuth) {
       setError('Authentication service not available');
@@ -75,7 +143,7 @@ export default function LoginPage() {
     setError('');
     setResetEmailSent(false);
     setLoading(true);
-;
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(firebaseAuth, provider);
@@ -87,6 +155,10 @@ export default function LoginPage() {
     }
   };
 
+  /**
+   * Handles password reset email sending
+   * Requires email to be entered in the form
+   */
   const handlePasswordReset = async () => {
     if (!firebaseAuth) {
       setError('Authentication service not available');
@@ -111,7 +183,8 @@ export default function LoginPage() {
     }
   };
 
-  // Prevent hydration issues by only rendering client-side
+  // Show loading skeleton while Firebase auth initializes
+  // Prevents hydration mismatch between server and client
   if (!mounted || !firebaseAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -135,15 +208,17 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+            {isSignUp ? 'Create your account' : 'Sign in to your account'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Welcome back! Please enter your credentials
+            {isSignUp ? 'Join us today! Create your account' : 'Welcome back! Please enter your credentials'}
           </p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleEmailLogin}>
+        {/* Main form that handles both login and signup based on isSignUp state */}
+        <form className="mt-8 space-y-6" onSubmit={isSignUp ? handleEmailSignUp : handleEmailLogin}>
           <div className="rounded-md shadow-sm -space-y-px">
+            {/* Email input - common for both login and signup */}
             <div>
               <label htmlFor="email" className="sr-only">
                 Email address
@@ -160,6 +235,8 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            
+            {/* Password input - common for both login and signup */}
             <div>
               <label htmlFor="password" className="sr-only">
                 Password
@@ -168,16 +245,37 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+            
+            {/* Confirm password - only shown during signup */}
+            {isSignUp && (
+              <div>
+                <label htmlFor="confirm-password" className="sr-only">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirm-password"
+                  name="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
+          {/* Error message display */}
           {error && (
             <div className="rounded-md bg-red-50 p-4">
               <div className="flex">
@@ -190,6 +288,7 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Success message for password reset */}
           {resetEmailSent && (
             <div className="rounded-md bg-green-50 p-4">
               <div className="flex">
@@ -202,49 +301,57 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Remember me
-              </label>
-            </div>
+          {/* Remember me and forgot password - only shown during login */}
+          {!isSignUp && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                  Remember me
+                </label>
+              </div>
 
-            <div className="text-sm">
-              <button
-                type="button"
-                onClick={handlePasswordReset}
-                className="font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Forgot your password?
-              </button>
+              <div className="text-sm">
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
+          {/* Submit button - text changes based on mode */}
           <div>
             <button
               type="submit"
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in with Email'}
+              {loading ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Create account' : 'Sign in')}
             </button>
           </div>
 
+          {/* Divider with "or" text */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">Or continue with</span>
+              <span className="px-2 bg-gray-50 text-gray-500">
+                {isSignUp ? 'Or sign up with' : 'Or continue with'}
+              </span>
             </div>
           </div>
 
+          {/* Google authentication button */}
           <div>
             <button
               type="button"
@@ -258,27 +365,39 @@ export default function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Sign in with Google
+              {isSignUp ? 'Sign up with Google' : 'Sign in with Google'}
             </button>
           </div>
 
+          {/* Toggle between login and signup modes */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <a href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Sign up here
-              </a>
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError('');
+                  setResetEmailSent(false);
+                }}
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                {isSignUp ? 'Sign in here' : 'Sign up here'}
+              </button>
             </p>
           </div>
         </form>
 
-        <div className="mt-6 bg-gray-50 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Demo Credentials</h3>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p><strong>Email:</strong> demo@example.com</p>
-            <p><strong>Password:</strong> demo123</p>
+        {/* Demo credentials - only shown during login */}
+        {!isSignUp && (
+          <div className="mt-6 bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-900 mb-2">Demo Credentials</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <p><strong>Email:</strong> demo@example.com</p>
+              <p><strong>Password:</strong> demo123</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
